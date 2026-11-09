@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#05070d" />
+  <title>스탑워치 게임 · 10초 맞추기</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⏱️</text></svg>" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg" aria-hidden="true">
+    <span class="orb orb-a"></span>
+    <span class="orb orb-b"></span>
+    <span class="orb orb-c"></span>
+  </div>
+
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">◷</span>
+        <div class="brand-text">
+          <h1>STOPWATCH GAME</h1>
+          <p>10초 맞추기 · Stop at the exact time</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="soundBtn" type="button" aria-pressed="true" aria-label="소리 켜기/끄기">🔊</button>
+        <button class="icon-btn" id="resetBtn" type="button" aria-label="게임 초기화">↺</button>
+      </div>
+    </header>
+
+    <main class="panel">
+      <div class="mode-row" id="modeRow" role="group" aria-label="목표 시간 선택">
+        <button class="mode-btn" data-mode="5" type="button">5초</button>
+        <button class="mode-btn is-active" data-mode="10" type="button">10초</button>
+        <button class="mode-btn" data-mode="15" type="button">15초</button>
+        <button class="mode-btn" data-mode="random" type="button">랜덤</button>
+      </div>
+
+      <div class="circle-wrap">
+        <button class="circle" id="circle" type="button" aria-label="시작">
+          <span class="circle-ring" aria-hidden="true"></span>
+          <span class="circle-inner">
+            <span class="circle-main" id="circleMain">START</span>
+            <span class="circle-sub" id="circleSub">목표 10초</span>
+          </span>
+        </button>
+      </div>
+
+      <p class="hint" id="hint">화면에 시간이 보이지 않아요. 감으로 정확히 멈춰보세요!</p>
+
+      <div class="status" id="status" aria-live="polite"></div>
+
+      <ol class="rounds" id="rounds" aria-label="라운드 기록"></ol>
+
+      <div class="actions" id="actions"></div>
+    </main>
+
+    <footer class="footer">
+      <p>Space · Enter 로도 조작할 수 있어요 · 총 5라운드</p>
+      <p class="best" id="bestLine">최고 기록이 아직 없어요</p>
+    </footer>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
