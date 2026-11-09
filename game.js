@@ -122,6 +122,178 @@
     });
   }
 
+  /* ---------------- background music (Web Audio, no files) ---------------- */
+
+  // Driving 132 BPM suspense loop in D minor: heartbeat kick, pulsing bass,
+  // off-beat hats and a sparse arpeggio. The loop never speeds up or changes,
+  // so it cannot be used to infer the hidden elapsed time.
+  var MUSIC_BPM = 132;
+  var MUSIC_STEP = 60 / MUSIC_BPM / 4; // 16th note
+  var MUSIC_STEPS = 32; // 2 bars of 4/4
+  var MUSIC_VOLUME = 0.17;
+
+  var D2 = 73.42;
+  var F2 = 87.31;
+  var C2 = 65.41;
+  var BASS_LINE = [D2, D2, D2, D2, D2, D2, D2, D2, D2, D2, D2, D2, F2, F2, C2, D2];
+  var ARP_BAR = [
+    [349.23, 440.0, 523.25, 293.66], // F4 A4 C5 D4
+    [440.0, 523.25, 349.23, 440.0]
+  ];
+  var ARP_STEPS = [1, 5, 9, 13];
+
+  var music = null;
+
+  function makeNoiseBuffer(ctx) {
+    var length = Math.floor(ctx.sampleRate * 0.25);
+    var buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+    var data = buffer.getChannelData(0);
+    for (var i = 0; i < length; i += 1) data[i] = Math.random() * 2 - 1;
+    return buffer;
+  }
+
+  function startMusic() {
+    if (!game.sound || music) return;
+    var ctx = getAudio();
+    if (!ctx) return;
+
+    var master = ctx.createGain();
+    master.gain.setValueAtTime(0.0001, ctx.currentTime);
+    master.gain.exponentialRampToValueAtTime(MUSIC_VOLUME, ctx.currentTime + 0.8);
+    master.connect(ctx.destination);
+
+    music = {
+      ctx: ctx,
+      master: master,
+      noise: makeNoiseBuffer(ctx),
+      step: 0,
+      nextTime: ctx.currentTime + 0.08,
+      timer: 0
+    };
+    music.timer = setInterval(scheduleMusic, 25);
+    scheduleMusic();
+  }
+
+  function stopMusic() {
+    if (!music) return;
+    var m = music;
+    music = null;
+    clearInterval(m.timer);
+
+    var t = m.ctx.currentTime;
+    try {
+      m.master.gain.cancelScheduledValues(t);
+      m.master.gain.setValueAtTime(Math.max(0.0001, m.master.gain.value), t);
+      m.master.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    } catch (err) {
+      /* context already closed */
+    }
+    setTimeout(function () {
+      try {
+        m.master.disconnect();
+      } catch (err) {
+        /* already disconnected */
+      }
+    }, 500);
+  }
+
+  function scheduleMusic() {
+    if (!music) return;
+    var horizon = music.ctx.currentTime + 0.15;
+    var guard = 0;
+    while (music.nextTime < horizon && guard < 32) {
+      playMusicStep(music.step, music.nextTime);
+      music.nextTime += MUSIC_STEP;
+      music.step = (music.step + 1) % MUSIC_STEPS;
+      guard += 1;
+    }
+  }
+
+  function musicKick(t, ctx) {
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(142, t);
+    osc.frequency.exponentialRampToValueAtTime(46, t + 0.14);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.55, t + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+    osc.connect(gain);
+    gain.connect(music.master);
+    osc.start(t);
+    osc.stop(t + 0.22);
+  }
+
+  function musicBass(t, freq, ctx) {
+    var osc = ctx.createOscillator();
+    var filter = ctx.createBiquadFilter();
+    var gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(freq, t);
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(460, t);
+    filter.frequency.exponentialRampToValueAtTime(240, t + 0.15);
+    filter.Q.value = 5;
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.34, t + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(music.master);
+    osc.start(t);
+    osc.stop(t + 0.18);
+  }
+
+  function musicHat(t, ctx) {
+    var src = ctx.createBufferSource();
+    var filter = ctx.createBiquadFilter();
+    var gain = ctx.createGain();
+    src.buffer = music.noise;
+    filter.type = 'highpass';
+    filter.frequency.value = 7200;
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.1, t + 0.003);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.045);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(music.master);
+    src.start(t);
+    src.stop(t + 0.07);
+  }
+
+  function musicPluck(t, freq, ctx) {
+    var osc = ctx.createOscillator();
+    var filter = ctx.createBiquadFilter();
+    var gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(freq, t);
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(2800, t);
+    filter.frequency.exponentialRampToValueAtTime(700, t + 0.13);
+    filter.Q.value = 3;
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.09, t + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(music.master);
+    osc.start(t);
+    osc.stop(t + 0.2);
+  }
+
+  function playMusicStep(step, t) {
+    var ctx = music.ctx;
+    var pos = step % 16;
+    var bar = step < 16 ? 0 : 1;
+
+    if (pos % 4 === 0) musicKick(t, ctx);
+    if (pos % 2 === 0) musicBass(t, BASS_LINE[Math.floor(step / 2)], ctx);
+    if (pos % 4 === 2) musicHat(t, ctx);
+
+    var arpIndex = ARP_STEPS.indexOf(pos);
+    if (arpIndex !== -1) musicPluck(t, ARP_BAR[bar][arpIndex], ctx);
+  }
+
   /* ---------------- helpers ---------------- */
 
   function sec(ms) {
@@ -348,6 +520,7 @@
     game.target = game.mode === 'random' ? randomTarget() : MODE_TARGETS[game.mode];
     game.phase = 'countdown';
     render();
+    startMusic();
     runCountdown();
   }
 
@@ -390,6 +563,7 @@
     game.phase = 'result';
     inputLockUntil = performance.now() + 450;
 
+    stopMusic();
     sfxStop();
     render();
     popMain();
@@ -422,12 +596,14 @@
     game.phase = 'finished';
     inputLockUntil = performance.now() + 300;
 
+    stopMusic();
     render();
     sfxFinish(isRecord);
   }
 
   function resetGame() {
     clearTimers();
+    stopMusic();
     game.phase = 'idle';
     game.results = [];
     game.lastResult = null;
@@ -490,7 +666,12 @@
     game.sound = !game.sound;
     writeStore(SOUND_KEY, game.sound);
     initSoundButton();
-    if (game.sound) tone(760, 0.08, { volume: 0.05 });
+    if (game.sound) {
+      if (game.phase === 'countdown' || game.phase === 'running') startMusic();
+      tone(760, 0.08, { volume: 0.05 });
+    } else {
+      stopMusic();
+    }
   });
 
   ui.resetBtn.addEventListener('click', function () {
