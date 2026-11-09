@@ -111,8 +111,62 @@
     } else if (score >= 500) {
       tone(620, 0.1, { volume: 0.05 });
     } else {
-      tone(300, 0.14, { volume: 0.05, slideTo: 210 });
+      sfxFail();
     }
+  }
+
+  function trombone(freq, duration, delay, volume, slideTo, vibrato) {
+    var ctx = getAudio();
+    if (!ctx) return;
+
+    var t0 = ctx.currentTime + (delay || 0);
+    var osc = ctx.createOscillator();
+    var filter = ctx.createBiquadFilter();
+    var gain = ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(freq, t0);
+    if (slideTo) {
+      osc.frequency.exponentialRampToValueAtTime(slideTo, t0 + duration);
+    }
+
+    filter.type = 'lowpass';
+    filter.Q.value = 3;
+    filter.frequency.setValueAtTime(1500, t0);
+    filter.frequency.exponentialRampToValueAtTime(420, t0 + duration * 0.9);
+
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(volume, t0 + 0.045);
+    gain.gain.setValueAtTime(volume * 0.9, t0 + duration * 0.55);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+
+    if (vibrato) {
+      var lfo = ctx.createOscillator();
+      var lfoGain = ctx.createGain();
+      lfo.frequency.setValueAtTime(5.2, t0);
+      lfo.frequency.linearRampToValueAtTime(6.4, t0 + duration);
+      lfoGain.gain.setValueAtTime(0, t0);
+      lfoGain.gain.linearRampToValueAtTime(freq * 0.018, t0 + duration * 0.55);
+      lfo.connect(lfoGain);
+      lfoGain.connect(osc.frequency);
+      lfo.start(t0);
+      lfo.stop(t0 + duration + 0.05);
+    }
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + duration + 0.05);
+  }
+
+  // "와와와와~왕" — comedic sad-trombone failure sting.
+  function sfxFail() {
+    var notes = [392, 370, 349, 330];
+    notes.forEach(function (freq, i) {
+      trombone(freq, 0.26, i * 0.3, 0.045, freq * 0.9, false);
+    });
+    trombone(311, 1.15, 1.24, 0.055, 196, true);
   }
 
   function sfxFinish(isRecord) {
